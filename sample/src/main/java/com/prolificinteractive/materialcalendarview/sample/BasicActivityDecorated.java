@@ -5,6 +5,8 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
+
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import com.prolificinteractive.materialcalendarview.CalendarDay;
@@ -26,6 +28,7 @@ import org.threeten.bp.Month;
 public class BasicActivityDecorated extends AppCompatActivity implements OnDateSelectedListener {
 
   private final OneDayDecorator oneDayDecorator = new OneDayDecorator();
+  private EventDecorator eventDecoratorRef;
 
   @BindView(R.id.calendarView)
   MaterialCalendarView widget;
@@ -45,59 +48,61 @@ public class BasicActivityDecorated extends AppCompatActivity implements OnDateS
     final LocalDate min = LocalDate.of(instance.getYear(), Month.JANUARY, 1);
     final LocalDate max = LocalDate.of(instance.getYear(), Month.DECEMBER, 31);
 
+    ArrayList<CalendarDay> initializedDates = new ArrayList<>();
+    initializedDates.add(CalendarDay.from(instance));
+    eventDecoratorRef = new EventDecorator(Color.RED, initializedDates);
+
     widget.state().edit().setMinimumDate(min).setMaximumDate(max).commit();
 
     widget.addDecorators(
-        new MySelectorDecorator(this),
-        new HighlightWeekendsDecorator(),
-        oneDayDecorator
+            new MySelectorDecorator(this),
+            new HighlightWeekendsDecorator(),
+            eventDecoratorRef,
+            oneDayDecorator
     );
 
-    new ApiSimulator().executeOnExecutor(Executors.newSingleThreadExecutor());
+//    new ApiSimulator().executeOnExecutor(Executors.newSingleThreadExecutor());
   }
 
   @Override
   public void onDateSelected(
-      @NonNull MaterialCalendarView widget,
-      @NonNull CalendarDay date,
-      boolean selected) {
+          @NonNull MaterialCalendarView widget,
+          @NonNull CalendarDay date,
+          boolean selected) {
     //If you change a decorate, you need to invalidate decorators
     oneDayDecorator.setDate(date.getDate());
+    widget.removeDecorator(eventDecoratorRef);
     widget.invalidateDecorators();
+
+    LocalDate temp = date.getDate();
+    Log.d("temp", String.valueOf(temp));
+    final ArrayList<CalendarDay> dates = new ArrayList<>();
+    for (int i = 0; i < 10; i = i + 2) {
+      final CalendarDay day = CalendarDay.from(temp);
+      dates.add(day);
+      temp = temp.plusDays(2);
+    }
+    Log.d("dates", "dates: " + dates);
+
+    eventDecoratorRef = new EventDecorator(Color.RED, dates);
+
+    widget.addDecorator(eventDecoratorRef);
+
+    // First time
+    /*
+      1. Get the list of dates from DB
+      2. Populate the calender with those dates
+     */
+    // Second scenario
+    /*
+      1. User clicks on date and changes the attendance (Present -> Absent and vice versa)
+      2. That update is recorded in DB
+      3. Invalidate the decorators and use the values again from DB to create the calender
+     */
+
+    /*
+        Use the EventDecorator from the
+     */
   }
 
-  /**
-   * Simulate an API call to show how to add decorators
-   */
-  private class ApiSimulator extends AsyncTask<Void, Void, List<CalendarDay>> {
-
-    @Override
-    protected List<CalendarDay> doInBackground(@NonNull Void... voids) {
-      try {
-        Thread.sleep(2000);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-      LocalDate temp = LocalDate.now().minusMonths(2);
-      final ArrayList<CalendarDay> dates = new ArrayList<>();
-      for (int i = 0; i < 30; i++) {
-        final CalendarDay day = CalendarDay.from(temp);
-        dates.add(day);
-        temp = temp.plusDays(5);
-      }
-
-      return dates;
-    }
-
-    @Override
-    protected void onPostExecute(@NonNull List<CalendarDay> calendarDays) {
-      super.onPostExecute(calendarDays);
-
-      if (isFinishing()) {
-        return;
-      }
-
-      widget.addDecorator(new EventDecorator(Color.RED, calendarDays));
-    }
-  }
 }
